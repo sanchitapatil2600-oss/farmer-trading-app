@@ -290,7 +290,7 @@ Offers and bids are stored as server-side records. The backend determines whethe
 
 Validate listing status before accepting an offer/bid.
 
-Validate price and quantity values on the server.
+Validate price and quantity values on the server. Buyers may submit offers for partial listing quantity (0 < offer.quantity <= listing.quantity).
 
 Prevent unauthorized offer manipulation.
 
@@ -298,7 +298,13 @@ Record timestamps and user IDs for traceability.
 
 Use a controlled state machine for offer status.
 
-When a farmer accepts an offer, create or confirm a deal using a safe transactional operation.
+When a farmer accepts an offer, execute an atomic database transaction:
+1. Verify farmer ownership and that listing and offer are both ACTIVE.
+2. Verify offer.quantity <= remaining listing.quantity.
+3. Deduct accepted quantity from remaining listing.quantity.
+4. If remaining quantity reaches 0, update listing status to SOLD_OUT; if remaining quantity > 0, listing remains ACTIVE.
+5. Invalidate competing active offers whose requested quantity exceeds remaining listing quantity by transitioning them to EXPIRED with the reason "Insufficient remaining quantity". These offers never create deals.
+6. Create the deal record with initial status CONFIRMED.
 
 Prevent multiple conflicting accepted deals for the same listing/quantity.
 
@@ -308,13 +314,16 @@ A deal is the trusted record of an accepted transaction.
 
 References the listing, farmer, and buyer.
 
-Stores the agreed quantity and price.
+Stores the confirmed quantity and agreed price.
 
-Has a controlled lifecycle such as Confirmed → Payment Pending → Paid → Delivery → Completed, with cancellation states where permitted.
+The deal is created directly with status CONFIRMED immediately after the farmer accepts a valid offer.
+
+Has an exact controlled lifecycle:
+CONFIRMED → PAYMENT_PENDING → PAID → DELIVERY → COMPLETED, with CANCELLED state where permitted.
 
 Once confirmed, important commercial values should be protected from unauthorized changes.
 
-Deal creation and related offer updates should be transactionally consistent.
+Deal creation, inventory deduction, and related offer updates must be transactionally consistent.
 
 12. AI Price Recommendation Architecture
 
@@ -368,15 +377,15 @@ Handle pending, failed, cancelled, and successful states explicitly.
 
 The MVP uses an internal delivery-status module instead of implementing a complete logistics/fleet platform.
 
-Create delivery record after the relevant deal reaches the required payment/deal state.
+A delivery record is automatically initialized with status PENDING when the corresponding deal transitions to PAID following server-verified payment.
 
-Use controlled statuses: Pending, Pickup Scheduled, Picked Up, In Transit, Delivered, Cancelled.
+Use controlled statuses: PENDING, PICKUP_SCHEDULED, PICKED_UP, IN_TRANSIT, DELIVERED, CANCELLED.
 
-Record timestamps and the actor responsible for status changes.
+Record timestamps and the actor responsible for status changes. Scheduling pickup details and status updates are managed through authorized API endpoints.
 
 Manual status updates are acceptable for MVP.
 
-External logistics-provider APIs can be integrated later without changing the core deal model.
+External logistics-provider APIs can be integrated later via adapter boundaries without changing the core deal model.
 
 15. Notification Architecture
 
@@ -514,7 +523,7 @@ farmer-trading-app/
 
 └── assets/
 
-20. Environment and Secrets
+20. Environment, Secrets, and Integration Adapters
 
 Development and production secrets must be separated from source code.
 
@@ -527,6 +536,15 @@ Use the deployment platform's secret/environment-variable mechanism in productio
 Never paste payment secrets or private API keys into frontend source files.
 
 Rotate compromised secrets immediately.
+
+20.1 Integration Adapter Pattern
+
+All external integrations (payment gateways, AI/market-data services, object storage, and future logistics providers) must sit behind strict interface adapter boundaries:
+
+• Abstract Service Interfaces: Core application logic interacts only with unified interfaces (e.g., PaymentService, AIService, StorageService, LogisticsService).
+• Isolation: Provider-specific SDKs, API requests, response mappings, and raw payloads remain isolated within their respective integration modules (integrations/payments/, integrations/storage/, integrations/logistics/, and ai/).
+• Provider Independence: Switching or updating an external provider (such as choosing a specific payment gateway or S3-compatible storage vendor) requires no changes to core business models, controllers, or database schemas.
+• Failure Containment: Adapters safely catch timeouts and provider errors, returning standardized internal failure states so external disruptions never crash the application or forge false success states.
 
 21. API Design Principles
 

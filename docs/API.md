@@ -136,7 +136,7 @@ crop/product
 district
 price range
 availability
-listing status
+listing status (DRAFT, ACTIVE, SOLD_OUT, CLOSED, CANCELLED)
 
 Support pagination.
 
@@ -203,13 +203,14 @@ Farmer only.
 
 The server must:
 
-Verify listing ownership.
-Verify offer validity.
-Verify listing availability.
-Prevent conflicting accepted deals.
-Create the deal using a database transaction.
-Update relevant listing and offer statuses.
-Record the action in the audit log.
+1. Verify listing ownership and that listing and offer are both ACTIVE.
+2. Verify offer quantity <= remaining listing quantity.
+3. Atomically deduct accepted quantity from listing available quantity.
+4. If remaining quantity == 0, update listing status to SOLD_OUT; if remaining quantity > 0, listing remains ACTIVE.
+5. Invalidate competing active offers whose requested quantity exceeds remaining listing quantity by transitioning them to EXPIRED with reason "Insufficient remaining quantity". Expired offers never generate deals.
+6. Accept the selected offer and create the deal record with initial status CONFIRMED in a database transaction.
+7. Record the action in the audit log.
+
 POST /api/offers/:id/reject
 
 Reject an offer.
@@ -231,15 +232,14 @@ GET /api/deals/:id/status
 
 Return the current deal status.
 
-Possible statuses:
+Exact statuses:
 
-pending
-confirmed
-payment_pending
-paid
-delivery_pending
-completed
-cancelled
+CONFIRMED
+PAYMENT_PENDING
+PAID
+DELIVERY
+COMPLETED
+CANCELLED
 
 The exact state transitions must be controlled by the backend.
 
@@ -280,24 +280,27 @@ Payment status must come from verified provider information.
 
 11. Delivery / Logistics
 
-The MVP uses a basic delivery-status system.
+The MVP uses an internal delivery-status module.
+
+A delivery record is automatically created with status PENDING when the corresponding deal transitions to PAID following server-verified payment.
 
 POST /api/deals/:id/delivery
 
-Create delivery information for an eligible deal.
+Schedule delivery/pickup details for a paid deal (e.g., pickup_date, notes), transitioning delivery status to PICKUP_SCHEDULED.
 
 GET /api/deals/:id/delivery
 
 Return delivery status.
 
-Possible statuses:
+Statuses:
 
-pending
-pickup_scheduled
-picked_up
-in_transit
-delivered
-cancelled
+PENDING
+PICKUP_SCHEDULED
+PICKED_UP
+IN_TRANSIT
+DELIVERED
+CANCELLED
+
 PATCH /api/deliveries/:id/status
 
 Update delivery status.
@@ -310,6 +313,7 @@ live GPS tracking
 fleet management
 advanced route optimization
 automatic transporter allocation
+
 12. AI Price Recommendation
 POST /api/price-recommendations
 
@@ -338,6 +342,7 @@ recommendation
 data source information
 timestamp
 model/service information where appropriate
+
 13. Notifications
 GET /api/notifications
 
@@ -351,21 +356,30 @@ Users can update only their own notifications.
 
 14. Audit Logs
 
-Important actions should be recorded.
+Important actions must be recorded in an append-only audit trail.
 
 Examples:
+- listing created/updated
+- offer submitted/withdrawn
+- offer accepted/rejected/expired
+- deal created
+- payment status changed
+- delivery status changed
+- suspicious activity detected
 
-listing created
-listing updated
-offer submitted
-offer accepted
-offer rejected
-deal created
-payment status changed
-delivery status changed
-suspicious activity detected
+GET /api/audit-logs
 
-Audit logs should not expose unnecessary sensitive information.
+Retrieve paginated audit logs.
+
+Admin only (returns 403 Forbidden for non-admin users).
+
+Query parameters:
+- page (integer, default 1)
+- limit (integer, default 20, max 100)
+- entity_type (optional filter: produce_listing, offer, deal, payment, delivery, user)
+- actor_user_id (optional UUID filter)
+
+Audit logs must never expose passwords, tokens, or payment secrets.
 
 15. Standard Success Response
 

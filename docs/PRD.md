@@ -54,11 +54,15 @@ The MVP focuses on real, traceable marketplace actions: listing produce, discove
 •	View listing details before making an offer.
 5.4 Offers and Bidding
 The recommended MVP supports both direct offers and a simple bidding/auction mechanism. The exact trading mode should be visible to users so that commercial actions are not ambiguous.
-•	Buyer can submit an offer/bid for an active listing.
+•	Buyer can submit an offer/bid for an active listing (for full or partial quantity, where 0 < offer.quantity <= produce_listings.quantity).
 •	Buyer can view the status of their own offers.
 •	Buyer may withdraw an active offer where the applicable rules allow it.
 •	Farmer can view offers/bids received for their own listing.
 •	Farmer can accept or reject an offer/bid.
+•	Accepting an offer is atomic: accepted quantity is deducted from the listing's remaining quantity.
+•	If remaining quantity > 0, listing remains ACTIVE.
+•	If remaining quantity = 0, listing status becomes SOLD_OUT.
+•	Any competing pending offers requesting more quantity than remains available are transitioned to EXPIRED with the reason "Insufficient remaining quantity" and will not generate deals.
 •	Once a deal is confirmed, the accepted commercial terms become locked unless a defined cancellation/refund flow applies.
 5.5 AI Price Recommendation
 The AI feature is advisory only. It must not invent market prices or claim to provide an official or guaranteed price.
@@ -68,8 +72,9 @@ The AI feature is advisory only. It must not invent market prices or claim to pr
 •	If reliable data is unavailable, the system should state that a recommendation cannot be reliably generated rather than fabricating a value.
 •	The farmer remains responsible for the final listing/negotiated price.
 5.6 Deal Management
-•	Create a deal after an offer/bid is accepted.
-•	Record buyer, farmer, listing, quantity, agreed price, and deal status.
+•	Create a deal immediately after a farmer accepts a valid offer, with initial status CONFIRMED.
+•	Exact deal lifecycle statuses: CONFIRMED, PAYMENT_PENDING, PAID, DELIVERY, COMPLETED, CANCELLED.
+•	Record buyer, farmer, listing, confirmed quantity, agreed price, and deal status.
 •	Maintain transaction/deal history for authorized users.
 •	Prevent unauthorized changes to confirmed deal information.
 5.7 Online Payments
@@ -109,19 +114,22 @@ The MVP provides basic delivery coordination rather than full fleet-management s
 10.	Delivery status is tracked.
 11.	Deal is completed and retained in history.
 6.2 Buyer Flow
-12.	Register/login as Buyer.
-13.	Complete buyer profile.
-14.	Browse/search/filter produce listings.
-15.	Open a listing and review details.
-16.	Submit an offer/bid.
-17.	Track offer status.
-18.	If accepted, review the confirmed deal.
-19.	Complete payment through the external gateway.
-20.	Track delivery status.
-21.	View completed transaction history.
+1.	Register/login as Buyer.
+2.	Complete buyer profile.
+3.	Browse/search/filter produce listings.
+4.	Open a listing and review details.
+5.	Submit an offer/bid.
+6.	Track offer status.
+7.	If accepted, review the confirmed deal.
+8.	Complete payment through the external gateway.
+9.	Track delivery status.
+10.	View completed transaction history.
 7. Business Rules and Safeguards
 •	A user can only modify resources they are authorized to modify.
-•	A farmer cannot accept the same listing into multiple conflicting deals.
+•	A farmer cannot accept the same listing into multiple conflicting deals; accepted quantity must be <= remaining listing quantity.
+•	Accepting an offer is an atomic/transaction-safe operation that deducts the accepted quantity from remaining quantity.
+•	Listing remains ACTIVE if remaining quantity > 0, and transitions to SOLD_OUT when remaining quantity reaches 0.
+•	Competing active offers that request more quantity than remaining are transitioned to EXPIRED with reason "Insufficient remaining quantity".
 •	Offer/bid values must be validated on the server.
 •	The system must define when offers can be withdrawn.
 •	The system must prevent invalid status transitions.
@@ -226,18 +234,18 @@ The following features are intentionally excluded from the MVP to reduce reliabi
 •	Important actions are traceable through audit logs.
 •	The application handles external-service failure without creating false success states.
 17. Recommended Development Order
-22.	Project setup and GitHub repository
-23.	Authentication and roles
-24.	Database schema and authorization
-25.	Farmer profiles and produce listings
-26.	Buyer marketplace, search, and filters
-27.	Offers/bidding and deal confirmation
-28.	Audit logs and notifications
-29.	Payment gateway and webhook verification
-30.	Basic delivery/logistics status
-31.	AI price recommendation
-32.	End-to-end testing and security testing
-33.	Deployment and final review
+1.	Project setup and GitHub repository
+2.	Authentication and roles
+3.	Database schema and authorization
+4.	Farmer profiles and produce listings
+5.	Buyer marketplace, search, and filters
+6.	Offers/bidding and deal confirmation
+7.	Audit logs and notifications
+8.	Payment gateway and webhook verification
+9.	Basic delivery/logistics status
+10.	AI price recommendation
+11.	End-to-end testing and security testing
+12.	Deployment and final review
 18. Product Principle
 Build less, but make every core action real.
 The MVP should never simulate a payment, bid, deal, delivery event, market price, or verification merely to make the interface look complete. If a function cannot be reliably implemented, it should be clearly marked as unavailable or moved to a future version.

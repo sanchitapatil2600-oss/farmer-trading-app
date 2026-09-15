@@ -159,18 +159,20 @@ village	VARCHAR	General location
 district	VARCHAR	District
 state	VARCHAR	State
 image_url	TEXT	Optional produce image
-status	ENUM	DRAFT / ACTIVE / SOLD / CLOSED / CANCELLED
+status	ENUM	DRAFT / ACTIVE / SOLD_OUT / CLOSED / CANCELLED
 created_at	TIMESTAMP	Creation time
 updated_at	TIMESTAMP	Last update time
 Rules
-farmer_id must reference a valid farmer user.
+farmer_id must reference a valid user with role 'FARMER' (verified server-side).
 Quantity must be greater than zero.
 Price must not be negative.
 Only the owner can modify the listing.
 Exact private addresses must not be stored for public display.
 An inactive/closed listing must not accept new offers.
+When available quantity reaches zero, status transitions to SOLD_OUT.
 Relationship
-farmer_profiles (1) ──────── (many) produce_listings
+users [Farmer] (1) ──────── (many) produce_listings
+(farmer_profiles provides profile metadata for the farmer user)
 9. offers
 
 Stores direct offers and auction/bidding activity.
@@ -191,10 +193,11 @@ Buyer must be authenticated.
 Buyer must have BUYER role.
 Listing must be active.
 Price must be greater than zero.
-Quantity must be valid.
+Quantity must be valid and <= remaining listing quantity.
 Buyer can manage only their own offers.
 Farmer can accept/reject offers for their own listing.
 An accepted offer must not create conflicting deals.
+When a listing's remaining quantity decreases below an active offer's requested quantity, that offer transitions to EXPIRED with reason "Insufficient remaining quantity" and cannot generate a deal.
 Offer status transitions must be controlled by the backend.
 Relationship
 produce_listings (1) ──────── (many) offers
@@ -203,7 +206,7 @@ users/buyers     (1) ──────── (many) offers
 
 Stores confirmed transactions.
 
-A deal is created when a farmer accepts an offer/bid.
+A deal is created with status CONFIRMED immediately when a farmer accepts a valid offer/bid.
 
 Main fields
 Field	Type	Description
@@ -220,6 +223,7 @@ created_at	TIMESTAMP	Deal creation time
 updated_at	TIMESTAMP	Last update time
 Rules
 Deal must reference a valid accepted offer.
+Deal is initialized with status CONFIRMED upon offer acceptance.
 Farmer and buyer must match the listing/offer.
 Agreed price must come from the accepted offer.
 Critical deal creation should use a database transaction.
@@ -464,15 +468,17 @@ Valid delivery status transition.
 The following operations should be treated as critical transactions:
 
 Accepting an offer
-1. Verify farmer authorization.
-2. Verify listing is active.
-3. Verify offer is active.
-4. Verify quantity availability.
-5. Accept the selected offer.
-6. Create the deal.
-7. Update listing/offer states as required.
-8. Record audit event.
-9. Commit transaction.
+1. Verify farmer authorization (ownership of listing).
+2. Verify listing is ACTIVE.
+3. Verify offer is ACTIVE.
+4. Verify offer.quantity <= remaining listing.quantity.
+5. Atomically deduct listing.quantity = listing.quantity - offer.quantity.
+6. If remaining listing.quantity == 0, update listing status to SOLD_OUT; if remaining quantity > 0, remain ACTIVE.
+7. Invalidate competing active offers whose requested quantity exceeds remaining listing quantity by transitioning them to EXPIRED with reason "Insufficient remaining quantity". These offers never create deals.
+8. Update accepted offer status to ACCEPTED.
+9. Create the deal record with status CONFIRMED.
+10. Record audit event.
+11. Commit transaction.
 
 If a critical step fails, the transaction should be rolled back.
 
@@ -565,16 +571,3 @@ The system should store real application state rather than simulated data.
 
 Core financial and marketplace records must always be verifiable from database records and trusted external integrations.
 
-
----
-
-## Step 7 — Commit it
-
-At the bottom of GitHub, select:
-
-**Commit directly to the `main` branch**
-
-Commit message:
-
-```text
-docs: add database design
