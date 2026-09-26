@@ -97,6 +97,27 @@ export async function query<T extends QueryResultRow = any>(
   return dbPool.query<T>(text, params);
 }
 
+export async function withTransaction<T>(
+  callback: (client: import('pg').PoolClient) => Promise<T>
+): Promise<T> {
+  const dbPool = getPool();
+  if (!dbPool) {
+    throw new Error('Database transaction failed: DATABASE_URL is not configured.');
+  }
+  const client = await dbPool.connect();
+  try {
+    await client.query('BEGIN');
+    const result = await callback(client);
+    await client.query('COMMIT');
+    return result;
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
 export async function closePool(): Promise<void> {
   if (pool) {
     await pool.end();

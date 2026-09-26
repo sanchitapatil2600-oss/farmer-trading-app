@@ -9,6 +9,7 @@ export interface AppConfig {
   port: number;
   nodeEnv: string;
   databaseUrl?: string;
+  authSecret: string;
   isProduction: boolean;
 }
 
@@ -19,6 +20,7 @@ export function loadConfig(): AppConfig {
   }
 
   const nodeEnv = process.env.NODE_ENV || 'development';
+  const isProduction = nodeEnv === 'production';
   const databaseUrl = process.env.DATABASE_URL?.trim() || undefined;
 
   // Basic format validation if DATABASE_URL is provided
@@ -26,11 +28,17 @@ export function loadConfig(): AppConfig {
     throw new Error('Configuration error: DATABASE_URL must start with postgres:// or postgresql://');
   }
 
+  const authSecret = process.env.AUTH_SECRET?.trim() || (isProduction ? '' : 'farmer_trading_dev_auth_secret_must_be_set_in_production');
+  if (isProduction && !authSecret) {
+    throw new Error('Configuration error: AUTH_SECRET must be set in production environment.');
+  }
+
   return {
     port,
     nodeEnv,
     databaseUrl,
-    isProduction: nodeEnv === 'production',
+    authSecret,
+    isProduction,
   };
 }
 

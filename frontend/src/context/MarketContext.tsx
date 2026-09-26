@@ -41,10 +41,11 @@ interface MarketContextType {
   // Navigation
   navigateTo: (screen: ScreenName, params?: { listingId?: string; dealId?: string }) => void;
   
-  // User Session (In-memory demonstration state)
-  login: (emailOrPhone: string, role: UserRole) => void;
-  register: (profile: Partial<UserProfile> & { role: UserRole; name: string }) => void;
-  logout: () => void;
+  // Authentication & Session
+  authToken: string | null;
+  login: (emailOrPhone: string, role: UserRole, password?: string) => Promise<{ success: boolean; error?: string }>;
+  register: (profile: Partial<UserProfile> & { role: UserRole; name: string; password?: string }) => Promise<{ success: boolean; error?: string }>;
+  logout: () => Promise<void>;
   
   // Marketplace Actions (Typed frontend state transitions)
   addListing: (listing: {
@@ -82,7 +83,7 @@ interface MarketContextType {
 const MarketContext = createContext<MarketContextType | undefined>(undefined);
 
 export const MarketProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  // Start with demonstration farmer as logged-in session for immediate review
+  const [authToken, setAuthToken] = useState<string | null>(() => localStorage.getItem('agrihub_token'));
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(initialDemoUsers.farmer);
   const [activeScreen, setActiveScreen] = useState<ScreenName>('landing');
   const [selectedListingId, setSelectedListingId] = useState<string | null>('prod-001');
@@ -93,6 +94,43 @@ export const MarketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   const [deals, setDeals] = useState<Deal[]>(initialDeals);
   const [payments, setPayments] = useState<PaymentRecord[]>(initialPayments);
   const [deliveries, setDeliveries] = useState<DeliveryRecord[]>(initialDeliveries);
+
+  // Hydrate authenticated user session on mount if token is stored
+  React.useEffect(() => {
+    const token = localStorage.getItem('agrihub_token');
+    if (token) {
+      fetch('/api/auth/me', {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+        .then((res) => {
+          if (!res.ok) throw new Error('Session invalid');
+          return res.json();
+        })
+        .then((result) => {
+          if (result.success && result.data) {
+            const { user, farmerProfile, buyerProfile } = result.data;
+            setCurrentUser({
+              id: user.id,
+              email: user.email || '',
+              phone: user.phone || '',
+              name: farmerProfile?.name || buyerProfile?.name || (user.role === 'FARMER' ? 'Farmer' : 'Buyer'),
+              role: user.role,
+              village: farmerProfile?.village || undefined,
+              district: farmerProfile?.district || buyerProfile?.district || '',
+              state: farmerProfile?.state || buyerProfile?.state || '',
+              buyerType: buyerProfile?.buyerType as any,
+              organizationName: buyerProfile?.organizationName || undefined,
+              city: buyerProfile?.city || undefined,
+            });
+            setAuthToken(token);
+          }
+        })
+        .catch(() => {
+          localStorage.removeItem('agrihub_token');
+          setAuthToken(null);
+        });
+    }
+  }, []);
 
   const navigateTo = (screen: ScreenName, params?: { listingId?: string; dealId?: string }) => {
     if (params?.listingId) {
@@ -105,7 +143,61 @@ export const MarketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const login = (emailOrPhone: string, role: UserRole) => {
+  const login = async (
+    emailOrPhone: string,
+    role: UserRole,
+    password?: string
+  ): Promise<{ success: boolean; error?: string }> => {
+    // If password provided, perform real backend authentication
+    if (password) {
+      try {
+        const response = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ identifier: emailOrPhone, password }),
+        });
+        const result = await response.json();
+        if (response.ok && result.success && result.data) {
+          const { token, user, farmerProfile, buyerProfile } = result.data;
+          if (token) {
+            localStorage.setItem('agrihub_token', token);
+            setAuthToken(token);
+          }
+          const loadedUser: UserProfile = {
+            id: user.id,
+            email: user.email || '',
+            phone: user.phone || '',
+            name: farmerProfile?.name || buyerProfile?.name || (user.role === 'FARMER' ? 'Farmer' : 'Buyer'),
+            role: user.role,
+            village: farmerProfile?.village || undefined,
+            district: farmerProfile?.district || buyerProfile?.district || '',
+            state: farmerProfile?.state || buyerProfile?.state || '',
+            buyerType: buyerProfile?.buyerType as any,
+            organizationName: buyerProfile?.organizationName || undefined,
+            city: buyerProfile?.city || undefined,
+          };
+          setCurrentUser(loadedUser);
+          if (loadedUser.role === 'FARMER') {
+            navigateTo('farmer_dashboard');
+          } else {
+            navigateTo('marketplace');
+          }
+          return { success: true };
+        } else {
+          return {
+            success: false,
+            error: result.error?.message || 'Login failed. Please check your credentials.',
+          };
+        }
+      } catch (err: unknown) {
+        return {
+          success: false,
+          error: 'Unable to connect to backend authentication server.',
+        };
+      }
+    }
+
+    // Fallback: If no password is provided (quick demo switcher), set demo user
     if (role === 'FARMER') {
       setCurrentUser({
         ...initialDemoUsers.farmer,
@@ -121,9 +213,74 @@ export const MarketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       });
       navigateTo('marketplace');
     }
+    return { success: true };
   };
 
-  const register = (profile: Partial<UserProfile> & { role: UserRole; name: string }) => {
+  const register = async (
+    profile: Partial<UserProfile> & { role: UserRole; name: string; password?: string }
+  ): Promise<{ success: boolean; error?: string }> => {
+    // If password provided, perform real backend registration
+    if (profile.password) {
+      try {
+        const response = await fetch('/api/auth/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: profile.name,
+            email: profile.email || undefined,
+            phone: profile.phone || undefined,
+            password: profile.password,
+            role: profile.role,
+            village: profile.village,
+            district: profile.district,
+            state: profile.state,
+            buyerType: profile.buyerType,
+            organizationName: profile.organizationName,
+            city: profile.city,
+          }),
+        });
+        const result = await response.json();
+        if (response.ok && result.success && result.data) {
+          const { token, user, farmerProfile, buyerProfile } = result.data;
+          if (token) {
+            localStorage.setItem('agrihub_token', token);
+            setAuthToken(token);
+          }
+          const loadedUser: UserProfile = {
+            id: user.id,
+            email: user.email || '',
+            phone: user.phone || '',
+            name: farmerProfile?.name || buyerProfile?.name || profile.name,
+            role: user.role,
+            village: farmerProfile?.village || undefined,
+            district: farmerProfile?.district || buyerProfile?.district || '',
+            state: farmerProfile?.state || buyerProfile?.state || '',
+            buyerType: buyerProfile?.buyerType as any,
+            organizationName: buyerProfile?.organizationName || undefined,
+            city: buyerProfile?.city || undefined,
+          };
+          setCurrentUser(loadedUser);
+          if (loadedUser.role === 'FARMER') {
+            navigateTo('farmer_dashboard');
+          } else {
+            navigateTo('marketplace');
+          }
+          return { success: true };
+        } else {
+          return {
+            success: false,
+            error: result.error?.message || 'Registration failed.',
+          };
+        }
+      } catch (err: unknown) {
+        return {
+          success: false,
+          error: 'Unable to connect to backend authentication server.',
+        };
+      }
+    }
+
+    // Demo fallback if no password provided
     const newUser: UserProfile = {
       id: `usr-${Date.now()}`,
       email: profile.email || 'user@example.com',
@@ -143,9 +300,26 @@ export const MarketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     } else {
       navigateTo('marketplace');
     }
+    return { success: true };
   };
 
-  const logout = () => {
+  const logout = async () => {
+    const token = localStorage.getItem('agrihub_token') || authToken;
+    if (token) {
+      try {
+        await fetch('/api/auth/logout', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+        });
+      } catch {
+        // Safe ignore network failure on logout
+      }
+    }
+    localStorage.removeItem('agrihub_token');
+    setAuthToken(null);
     setCurrentUser(null);
     navigateTo('landing');
   };
@@ -319,6 +493,7 @@ export const MarketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
 
   return (
     <MarketContext.Provider value={{
+      authToken,
       currentUser,
       activeScreen,
       selectedListingId,

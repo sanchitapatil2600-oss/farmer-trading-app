@@ -23,8 +23,9 @@ export const RegisterScreen: React.FC = () => {
   const [city, setCity] = useState('');
 
   const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState<boolean>(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!name.trim()) {
@@ -62,13 +63,14 @@ export const RegisterScreen: React.FC = () => {
     }
 
     setError(null);
+    setSubmitting(true);
 
-    // Register in in-memory state
-    register({
+    const result = await register({
       role: selectedRole,
       name: name.trim(),
       phone: phone.trim(),
       email: email.trim() || undefined,
+      password: password.trim(),
       state: state.trim(),
       district: district.trim(),
       village: selectedRole === 'FARMER' ? village.trim() : undefined,
@@ -76,6 +78,11 @@ export const RegisterScreen: React.FC = () => {
       buyerType: selectedRole === 'BUYER' ? buyerType : undefined,
       city: selectedRole === 'BUYER' ? city.trim() : undefined,
     });
+
+    setSubmitting(false);
+    if (!result.success && result.error) {
+      setError(result.error);
+    }
   };
 
   return (
@@ -89,12 +96,12 @@ export const RegisterScreen: React.FC = () => {
           </p>
         </div>
 
-        {/* Phase Demonstration Disclaimer */}
-        <div className="agri-alert agri-alert-warning" style={{ fontSize: '0.8rem' }}>
-          <span>⚠️</span>
+        {/* Phase 2 Authentication Notice */}
+        <div className="agri-alert agri-alert-privacy" style={{ fontSize: '0.85rem' }}>
+          <span>🔒</span>
           <div>
-            <strong>Frontend Demonstration Mode:</strong> Registration is UI-only in this phase. 
-            No data is submitted to a remote server. Completing this form sets up a typed in-memory session for review.
+            <strong>Phase 2 Registration:</strong> User credentials are securely hashed and stored on the server.
+            Only FARMER and BUYER accounts can be registered.
           </div>
         </div>
 
@@ -417,8 +424,9 @@ export const RegisterScreen: React.FC = () => {
             type="submit" 
             className="btn-primary" 
             style={{ width: '100%', marginTop: '0.75rem' }}
+            disabled={submitting}
           >
-            Create {selectedRole === 'FARMER' ? 'Farmer' : 'Buyer'} Account
+            {submitting ? 'Creating Account...' : `Create ${selectedRole === 'FARMER' ? 'Farmer' : 'Buyer'} Account`}
           </button>
         </form>
 

@@ -8,8 +8,9 @@ export const LoginScreen: React.FC = () => {
   const [password, setPassword] = useState('');
   const [selectedRole, setSelectedRole] = useState<UserRole>('FARMER');
   const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState<boolean>(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!identifier.trim()) {
       setError('Please enter your mobile phone number or email address.');
@@ -21,8 +22,12 @@ export const LoginScreen: React.FC = () => {
     }
 
     setError(null);
-    // UI-only demonstration login: sets in-memory state
-    login(identifier, selectedRole);
+    setSubmitting(true);
+    const result = await login(identifier.trim(), selectedRole, password.trim());
+    setSubmitting(false);
+    if (!result.success && result.error) {
+      setError(result.error);
+    }
   };
 
   return (
@@ -36,12 +41,12 @@ export const LoginScreen: React.FC = () => {
           </p>
         </div>
 
-        {/* Phase Demonstration Disclaimer */}
-        <div className="agri-alert agri-alert-warning" style={{ fontSize: '0.8rem' }}>
-          <span>⚠️</span>
+        {/* Phase 2 Real Authentication Notice */}
+        <div className="agri-alert agri-alert-privacy" style={{ fontSize: '0.85rem' }}>
+          <span>🔒</span>
           <div>
-            <strong>Frontend Demonstration Mode:</strong> Authentication is purely UI-based for this review phase. 
-            Real backend authentication will be enabled in Phase 3. You can enter any sample credentials to test the interface.
+            <strong>Phase 2 Authentication:</strong> Connected to server-side authentication API.
+            Session verification and server-side role validation are strictly enforced.
           </div>
         </div>
 
@@ -129,8 +134,9 @@ export const LoginScreen: React.FC = () => {
             type="submit" 
             className="btn-primary" 
             style={{ width: '100%', marginTop: '0.5rem' }}
+            disabled={submitting}
           >
-            Login as {selectedRole === 'FARMER' ? 'Farmer' : 'Buyer'}
+            {submitting ? 'Authenticating...' : `Login as ${selectedRole === 'FARMER' ? 'Farmer' : 'Buyer'}`}
           </button>
         </form>
 
