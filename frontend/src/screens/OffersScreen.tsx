@@ -3,14 +3,14 @@ import { useMarket } from '../context/MarketContext';
 import { StatusPill } from '../components/common/StatusPill';
 
 export const OffersScreen: React.FC = () => {
-  const { 
-    currentUser, 
-    offers, 
+  const {
+    currentUser,
+    offers,
     deals,
-    acceptOffer, 
-    rejectOffer, 
-    withdrawOffer, 
-    navigateTo 
+    acceptOffer,
+    rejectOffer,
+    withdrawOffer,
+    navigateTo
   } = useMarket();
 
   // Tab: Received Offers (Farmer) vs My Submitted Offers (Buyer)
@@ -18,33 +18,71 @@ export const OffersScreen: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'FARMER_OFFERS' | 'BUYER_OFFERS'>(defaultTab);
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'ACTIVE' | 'ACCEPTED' | 'REJECTED' | 'WITHDRAWN'>('ALL');
   const [notification, setNotification] = useState<string | null>(null);
+  const [submittingOfferId, setSubmittingOfferId] = useState<string | null>(null);
 
-  const farmerId = currentUser?.id || 'usr-f-001';
-  const buyerId = currentUser?.id || 'usr-b-001';
+  if (!currentUser) {
+    return (
+      <div className="market-card" style={{ textAlign: 'center', padding: '3.5rem 1.5rem', background: 'var(--color-canvas-bg)' }}>
+        <span style={{ fontSize: '3rem', display: 'block', marginBottom: '0.75rem' }}>📬</span>
+        <h2 style={{ fontSize: '1.4rem', fontWeight: 700, color: 'var(--color-forest-900)', marginBottom: '0.5rem' }}>
+          Offers &amp; Negotiations Access
+        </h2>
+        <p style={{ color: 'var(--color-soil-600)', maxWidth: '480px', margin: '0 auto 1.5rem', lineHeight: 1.5 }}>
+          Please log in to view and track your produce offers. Farmers can inspect and accept bids; buyers can manage submitted negotiations.
+        </p>
+        <button
+          type="button"
+          className="btn-primary"
+          onClick={() => navigateTo('login')}
+        >
+          Login to Continue
+        </button>
+      </div>
+    );
+  }
 
-  const receivedOffers = offers.filter(o => o.farmerId === farmerId);
-  const submittedOffers = offers.filter(o => o.buyerId === buyerId);
+  const userId = currentUser.id;
+  const receivedOffers = offers.filter(o => o.farmerId === userId);
+  const submittedOffers = offers.filter(o => o.buyerId === userId);
 
   const displayedOffers = (activeTab === 'FARMER_OFFERS' ? receivedOffers : submittedOffers).filter(o => {
     if (statusFilter === 'ALL') return true;
     return o.status === statusFilter;
   });
 
-  const handleAccept = (offerId: string, cropName: string, buyerName: string) => {
-    acceptOffer(offerId);
-    setNotification(`Offer accepted for ${cropName} from ${buyerName}. A new deal has been created with status CONFIRMED.`);
+  const handleAccept = async (offerId: string, cropName: string, buyerName: string) => {
+    setSubmittingOfferId(offerId);
+    const res = await acceptOffer(offerId);
+    setSubmittingOfferId(null);
+    if (res.success) {
+      setNotification(`Offer accepted for ${cropName} from ${buyerName}. A new deal has been created with status CONFIRMED.`);
+    } else {
+      setNotification(`Failed to accept offer: ${res.error || 'Server error'}`);
+    }
     setTimeout(() => setNotification(null), 6000);
   };
 
-  const handleReject = (offerId: string) => {
-    rejectOffer(offerId);
-    setNotification('Offer has been marked as REJECTED.');
+  const handleReject = async (offerId: string) => {
+    setSubmittingOfferId(offerId);
+    const res = await rejectOffer(offerId);
+    setSubmittingOfferId(null);
+    if (res.success) {
+      setNotification('Offer has been marked as REJECTED.');
+    } else {
+      setNotification(`Failed to reject offer: ${res.error || 'Server error'}`);
+    }
     setTimeout(() => setNotification(null), 4000);
   };
 
-  const handleWithdraw = (offerId: string) => {
-    withdrawOffer(offerId);
-    setNotification('Your offer has been WITHDRAWN.');
+  const handleWithdraw = async (offerId: string) => {
+    setSubmittingOfferId(offerId);
+    const res = await withdrawOffer(offerId);
+    setSubmittingOfferId(null);
+    if (res.success) {
+      setNotification('Your offer has been WITHDRAWN.');
+    } else {
+      setNotification(`Failed to withdraw offer: ${res.error || 'Server error'}`);
+    }
     setTimeout(() => setNotification(null), 4000);
   };
 
@@ -63,14 +101,14 @@ export const OffersScreen: React.FC = () => {
           </div>
 
           <div style={{ display: 'flex', gap: '0.5rem' }}>
-            <button 
+            <button
               type="button"
               className="btn-secondary"
               onClick={() => navigateTo('farmer_dashboard')}
             >
               Farmer Dashboard
             </button>
-            <button 
+            <button
               type="button"
               className="btn-primary"
               onClick={() => navigateTo('marketplace')}
@@ -93,7 +131,7 @@ export const OffersScreen: React.FC = () => {
 
       {/* Dual Perspective Role Switcher */}
       <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
-        <div 
+        <div
           className={`agri-role-option-card ${activeTab === 'FARMER_OFFERS' ? 'selected' : ''}`}
           style={{ flex: 1, minWidth: '220px', padding: '0.85rem' }}
           onClick={() => { setActiveTab('FARMER_OFFERS'); setStatusFilter('ALL'); }}
@@ -109,7 +147,7 @@ export const OffersScreen: React.FC = () => {
           </span>
         </div>
 
-        <div 
+        <div
           className={`agri-role-option-card ${activeTab === 'BUYER_OFFERS' ? 'selected' : ''}`}
           style={{ flex: 1, minWidth: '220px', padding: '0.85rem' }}
           onClick={() => { setActiveTab('BUYER_OFFERS'); setStatusFilter('ALL'); }}
@@ -128,7 +166,7 @@ export const OffersScreen: React.FC = () => {
 
       {/* Status Filter Tabs */}
       <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', borderBottom: '1px solid var(--color-border-subtle)', paddingBottom: '0.5rem', flexWrap: 'wrap' }}>
-        <button 
+        <button
           type="button"
           className={`agri-nav-btn ${statusFilter === 'ALL' ? 'active' : ''}`}
           style={{ color: statusFilter === 'ALL' ? 'var(--color-forest-900)' : 'var(--color-soil-600)', background: statusFilter === 'ALL' ? 'var(--color-sprout-100)' : 'transparent', border: '1px solid var(--color-border-subtle)' }}
@@ -137,7 +175,7 @@ export const OffersScreen: React.FC = () => {
           All ({activeTab === 'FARMER_OFFERS' ? receivedOffers.length : submittedOffers.length})
         </button>
 
-        <button 
+        <button
           type="button"
           className={`agri-nav-btn ${statusFilter === 'ACTIVE' ? 'active' : ''}`}
           style={{ color: statusFilter === 'ACTIVE' ? 'var(--color-forest-900)' : 'var(--color-soil-600)', background: statusFilter === 'ACTIVE' ? 'var(--color-sprout-100)' : 'transparent', border: '1px solid var(--color-border-subtle)' }}
@@ -146,7 +184,7 @@ export const OffersScreen: React.FC = () => {
           Active
         </button>
 
-        <button 
+        <button
           type="button"
           className={`agri-nav-btn ${statusFilter === 'ACCEPTED' ? 'active' : ''}`}
           style={{ color: statusFilter === 'ACCEPTED' ? 'var(--color-forest-900)' : 'var(--color-soil-600)', background: statusFilter === 'ACCEPTED' ? 'var(--color-sprout-100)' : 'transparent', border: '1px solid var(--color-border-subtle)' }}
@@ -155,7 +193,7 @@ export const OffersScreen: React.FC = () => {
           Accepted (Confirmed)
         </button>
 
-        <button 
+        <button
           type="button"
           className={`agri-nav-btn ${statusFilter === 'REJECTED' ? 'active' : ''}`}
           style={{ color: statusFilter === 'REJECTED' ? 'var(--color-forest-900)' : 'var(--color-soil-600)', background: statusFilter === 'REJECTED' ? 'var(--color-sprout-100)' : 'transparent', border: '1px solid var(--color-border-subtle)' }}
@@ -165,7 +203,7 @@ export const OffersScreen: React.FC = () => {
         </button>
 
         {activeTab === 'BUYER_OFFERS' && (
-          <button 
+          <button
             type="button"
             className={`agri-nav-btn ${statusFilter === 'WITHDRAWN' ? 'active' : ''}`}
             style={{ color: statusFilter === 'WITHDRAWN' ? 'var(--color-forest-900)' : 'var(--color-soil-600)', background: statusFilter === 'WITHDRAWN' ? 'var(--color-sprout-100)' : 'transparent', border: '1px solid var(--color-border-subtle)' }}
@@ -184,8 +222,8 @@ export const OffersScreen: React.FC = () => {
             No offers found in this category
           </h3>
           <p style={{ color: 'var(--color-soil-600)', fontSize: '0.9rem' }}>
-            {activeTab === 'FARMER_OFFERS' 
-              ? 'New offers from buyers will appear here automatically.' 
+            {activeTab === 'FARMER_OFFERS'
+              ? 'New offers from buyers will appear here automatically.'
               : 'You have not submitted any offers matching this filter.'}
           </p>
         </div>
@@ -196,7 +234,7 @@ export const OffersScreen: React.FC = () => {
             const matchingDeal = deals.find(d => d.acceptedOfferId === offer.id);
 
             return (
-              <div 
+              <div
                 key={offer.id}
                 className="market-card"
                 style={{ padding: '1.5rem' }}
@@ -254,38 +292,43 @@ export const OffersScreen: React.FC = () => {
                 <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
                   {activeTab === 'FARMER_OFFERS' && offer.status === 'ACTIVE' && (
                     <>
-                      <button 
+                      <button
                         type="button"
                         className="btn-secondary"
                         style={{ color: 'var(--color-terracotta-700)', borderColor: 'var(--color-terracotta-700)' }}
                         onClick={() => handleReject(offer.id)}
+                        disabled={submittingOfferId === offer.id}
                       >
-                        Reject Offer
+                        {submittingOfferId === offer.id ? 'Processing...' : 'Reject Offer'}
                       </button>
 
-                      <button 
+                      <button
                         type="button"
                         className="btn-primary"
                         onClick={() => handleAccept(offer.id, offer.listingProductName, offer.buyerName)}
+                        disabled={submittingOfferId === offer.id}
                       >
-                        <span>🤝</span> Accept Offer &amp; Confirm Deal
+                        {submittingOfferId === offer.id ? 'Confirming Deal...' : (
+                          <><span>🤝</span> Accept Offer &amp; Confirm Deal</>
+                        )}
                       </button>
                     </>
                   )}
 
                   {activeTab === 'BUYER_OFFERS' && offer.status === 'ACTIVE' && (
-                    <button 
+                    <button
                       type="button"
                       className="btn-secondary"
                       style={{ color: 'var(--color-terracotta-700)', borderColor: 'var(--color-terracotta-700)' }}
                       onClick={() => handleWithdraw(offer.id)}
+                      disabled={submittingOfferId === offer.id}
                     >
-                      Withdraw Offer
+                      {submittingOfferId === offer.id ? 'Withdrawing...' : 'Withdraw Offer'}
                     </button>
                   )}
 
                   {offer.status === 'ACCEPTED' && matchingDeal && (
-                    <button 
+                    <button
                       type="button"
                       className="btn-primary"
                       onClick={() => navigateTo('deal_tracker', { dealId: matchingDeal.id })}

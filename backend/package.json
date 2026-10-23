@@ -9,10 +9,14 @@
     "start": "node dist/server.js",
     "dev": "tsx watch src/server.ts",
     "typecheck": "tsc --noEmit",
+    "typecheck:backend": "tsc --noEmit",
     "db:migrate": "tsx src/db/migrate.ts",
+    "db:seed": "tsx src/db/seed.ts",
     "test:auth": "tsx src/tests/auth.test.ts",
     "test:routes": "tsx src/tests/routes.test.ts",
-    "test": "npm run test:auth && npm run test:routes"
+    "test:listings": "tsx src/tests/listings.test.ts",
+    "test:offers_deals": "tsx src/tests/offers_deals.test.ts",
+    "test": "npm run test:auth && npm run test:routes && npm run test:listings && npm run test:offers_deals"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",

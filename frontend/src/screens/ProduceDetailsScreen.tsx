@@ -30,8 +30,20 @@ export const ProduceDetailsScreen: React.FC = () => {
 
   const calculatedTotal = (offerQty > 0 && offerPrice > 0) ? offerQty * offerPrice : 0;
 
-  const handleOfferSubmit = (e: React.FormEvent) => {
+  const [submittingOffer, setSubmittingOffer] = useState(false);
+
+  const handleOfferSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!currentUser) {
+      setFormError('Please log in as a Buyer to submit an offer.');
+      return;
+    }
+
+    if (currentUser.role !== 'BUYER') {
+      setFormError('Only registered Buyers can submit commercial purchase offers.');
+      return;
+    }
 
     if (isSoldOut) {
       setFormError('Cannot submit an offer for a sold out listing.');
@@ -54,9 +66,9 @@ export const ProduceDetailsScreen: React.FC = () => {
     }
 
     setFormError(null);
+    setSubmittingOffer(true);
 
-    // Submit typed offer to in-memory demonstration state
-    submitOffer({
+    const result = await submitOffer({
       listingId: listing.id,
       offeredPrice: Number(offerPrice),
       quantity: Number(offerQty),
@@ -64,14 +76,20 @@ export const ProduceDetailsScreen: React.FC = () => {
       message: offerMessage.trim() || undefined,
     });
 
-    setSubmittedOfferId(`off-${Date.now()}`);
+    setSubmittingOffer(false);
+
+    if (result.success) {
+      setSubmittedOfferId(result.offerId || `off-${Date.now()}`);
+    } else {
+      setFormError(result.error || 'Failed to submit offer.');
+    }
   };
 
   return (
     <div>
       {/* Back button */}
       <div style={{ marginBottom: '1.25rem' }}>
-        <button 
+        <button
           type="button"
           className="btn-secondary"
           onClick={() => navigateTo('marketplace')}
@@ -162,7 +180,7 @@ export const ProduceDetailsScreen: React.FC = () => {
             <div className="agri-alert agri-alert-privacy" style={{ marginBottom: '1.5rem' }}>
               <span style={{ fontSize: '1.25rem' }}>🛡️</span>
               <div>
-                <strong>Location Privacy Guarantee:</strong> Exact farm coordinates and residential door numbers are masked. 
+                <strong>Location Privacy Guarantee:</strong> Exact farm coordinates and residential door numbers are masked.
                 Pickup is arranged within the general <em>{listing.village}</em> mandi cluster in <em>{listing.district}</em>.
               </div>
             </div>
@@ -224,7 +242,7 @@ export const ProduceDetailsScreen: React.FC = () => {
                 <p style={{ fontSize: '0.85rem', color: 'var(--color-soil-600)', marginBottom: '1.25rem' }}>
                   Your offer of <strong>{offerQty} {listing.unit}s @ ₹{offerPrice}/{listing.unit}</strong> has been sent to the farmer for review.
                 </p>
-                <button 
+                <button
                   type="button"
                   className="btn-primary"
                   style={{ width: '100%' }}
@@ -242,6 +260,44 @@ export const ProduceDetailsScreen: React.FC = () => {
                 <p style={{ fontSize: '0.85rem', color: 'var(--color-soil-600)' }}>
                   All quantities for this harvest have been confirmed into deals. Check other available batches in the marketplace.
                 </p>
+              </div>
+            ) : !currentUser ? (
+              <div style={{ padding: '1.5rem', textAlign: 'center', background: 'var(--color-canvas-bg)', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border-subtle)' }}>
+                <span style={{ fontSize: '2rem', display: 'block', marginBottom: '0.5rem' }}>🔒</span>
+                <h3 style={{ fontSize: '1.15rem', fontWeight: 700, color: 'var(--color-forest-900)', marginBottom: '0.35rem' }}>
+                  Login to Make an Offer
+                </h3>
+                <p style={{ fontSize: '0.85rem', color: 'var(--color-soil-600)', marginBottom: '1.25rem' }}>
+                  Only verified buyers can negotiate and submit purchase offers directly to farmers.
+                </p>
+                <button
+                  type="button"
+                  className="btn-primary"
+                  style={{ width: '100%' }}
+                  onClick={() => navigateTo('login')}
+                >
+                  Login as Buyer
+                </button>
+              </div>
+            ) : currentUser.role === 'FARMER' ? (
+              <div style={{ padding: '1.5rem', textAlign: 'center', background: 'var(--color-sprout-50)', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-sprout-100)' }}>
+                <span style={{ fontSize: '2rem', display: 'block', marginBottom: '0.5rem' }}>🌾</span>
+                <h3 style={{ fontSize: '1.15rem', fontWeight: 700, color: 'var(--color-forest-900)', marginBottom: '0.35rem' }}>
+                  Farmer Perspective
+                </h3>
+                <p style={{ fontSize: '0.85rem', color: 'var(--color-soil-600)', marginBottom: '1.25rem' }}>
+                  {currentUser.id === listing.farmerId
+                    ? 'This is your own produce harvest listing. You can inspect and decide on offers received from buyers in the Offers screen.'
+                    : 'You are logged in as a Farmer. Commercial purchase offers are submitted by verified Buyers.'}
+                </p>
+                <button
+                  type="button"
+                  className="btn-primary"
+                  style={{ width: '100%' }}
+                  onClick={() => navigateTo(currentUser.id === listing.farmerId ? 'offers' : 'marketplace')}
+                >
+                  {currentUser.id === listing.farmerId ? 'Review Offers' : 'Browse Other Produce'}
+                </button>
               </div>
             ) : (
               <form onSubmit={handleOfferSubmit} noValidate>
@@ -262,7 +318,7 @@ export const ProduceDetailsScreen: React.FC = () => {
                       Max: {listing.quantity} {listing.unit}s
                     </span>
                   </div>
-                  <input 
+                  <input
                     id="offer-quantity"
                     type="number"
                     min="1"
@@ -282,7 +338,7 @@ export const ProduceDetailsScreen: React.FC = () => {
                   <label htmlFor="offer-price" className="agri-label">
                     Offered Price per {listing.unit} (₹) <span className="agri-label-required">*</span>
                   </label>
-                  <input 
+                  <input
                     id="offer-price"
                     type="number"
                     min="1"
@@ -314,7 +370,7 @@ export const ProduceDetailsScreen: React.FC = () => {
                   <label htmlFor="offer-message" className="agri-label">
                     Dispatch & Pickup Notes (Optional)
                   </label>
-                  <textarea 
+                  <textarea
                     id="offer-message"
                     rows={2}
                     className="agri-textarea"
@@ -325,20 +381,17 @@ export const ProduceDetailsScreen: React.FC = () => {
                 </div>
 
                 {/* Submit Button */}
-                <button 
+                <button
                   type="submit"
                   className="btn-primary"
                   style={{ width: '100%', fontSize: '1.05rem', minHeight: '48px' }}
+                  disabled={submittingOffer}
                 >
-                  <span>🤝</span> Submit Offer to Farmer
+                  <span>🤝</span> {submittingOffer ? 'Submitting Offer to Farmer...' : 'Submit Offer to Farmer'}
                 </button>
 
                 <div style={{ fontSize: '0.75rem', color: 'var(--color-soil-600)', textAlign: 'center', marginTop: '0.75rem' }}>
-                  {currentUser ? (
-                    <span>Submitting as verified buyer: <strong>{currentUser.name}</strong></span>
-                  ) : (
-                    <span>Submitting as prospective buyer (Demonstration Mode)</span>
-                  )}
+                  <span>Submitting as verified buyer: <strong>{currentUser.name}</strong></span>
                 </div>
               </form>
             )}

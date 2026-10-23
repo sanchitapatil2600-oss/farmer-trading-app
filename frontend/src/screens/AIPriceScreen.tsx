@@ -9,11 +9,9 @@ export const AIPriceScreen: React.FC = () => {
   const [unit, setUnit] = useState<'quintal' | 'kg' | 'tonne'>('quintal');
   const [district, setDistrict] = useState('Nashik');
   
-  // Toggle to demonstrate the approved Insufficient Market Data fallback
-  const [simulateInsufficientData, setSimulateInsufficientData] = useState(false);
   const [hasCalculated, setHasCalculated] = useState(true);
 
-  // Advisory benchmark benchmarks based on selected crop
+  // Advisory benchmark benchmarks based on selected crop from historical APMC mandi feeds
   const getAdvisoryBenchmark = (crop: string) => {
     switch (crop) {
       case 'Sharbati Golden Wheat':
@@ -26,14 +24,16 @@ export const AIPriceScreen: React.FC = () => {
         return { min: 4400, max: 4750, base: 4600, source: 'Akola & Vidarbha Mandi Benchmark Feed' };
       case 'Desi Chana (Bengal Gram)':
         return { min: 5050, max: 5350, base: 5200, source: 'Central India Pulses Historical Data' };
+      case 'Other / Unlisted Specialty Produce':
+        return null;
       default:
         return { min: 2100, max: 2400, base: 2250, source: 'Regional APMC Benchmark Feed' };
     }
   };
 
   const benchmark = getAdvisoryBenchmark(selectedCrop);
-  const minTotal = quantity * benchmark.min;
-  const maxTotal = quantity * benchmark.max;
+  const minTotal = benchmark ? quantity * benchmark.min : 0;
+  const maxTotal = benchmark ? quantity * benchmark.max : 0;
 
   const handleCalculate = (e: React.FormEvent) => {
     e.preventDefault();
@@ -103,6 +103,7 @@ export const AIPriceScreen: React.FC = () => {
                 <option value="Basmati 1121 Extra Long Grain Paddy">Basmati 1121 Extra Long Grain Paddy</option>
                 <option value="Yellow Soybean (JS 335)">Yellow Soybean (JS 335)</option>
                 <option value="Desi Chana (Bengal Gram)">Desi Chana (Bengal Gram)</option>
+                <option value="Other / Unlisted Specialty Produce">Other / Unlisted Specialty Produce</option>
               </select>
             </div>
 
@@ -157,20 +158,8 @@ export const AIPriceScreen: React.FC = () => {
               </select>
             </div>
 
-            {/* Demonstration Test Toggle: Insufficient Market Data Fallback */}
-            <div style={{ background: 'var(--color-canvas-bg)', padding: '0.85rem', borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-border-subtle)', marginBottom: '1.25rem' }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-soil-900)' }}>
-                <input 
-                  type="checkbox"
-                  checked={simulateInsufficientData}
-                  onChange={(e) => setSimulateInsufficientData(e.target.checked)}
-                  style={{ width: '18px', height: '18px' }}
-                />
-                Simulate "Insufficient Market Data" Fallback
-              </label>
-              <div style={{ fontSize: '0.75rem', color: 'var(--color-soil-600)', marginTop: '0.35rem' }}>
-                Demonstrates that AgriHub+ gracefully declines to fabricate a price when verified historical data is unavailable.
-              </div>
+            <div style={{ background: 'var(--color-canvas-bg)', padding: '0.85rem', borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-border-subtle)', marginBottom: '1.25rem', fontSize: '0.8rem', color: 'var(--color-soil-600)' }}>
+              ℹ️ <strong>Benchmark Policy:</strong> Rates are derived from Agmarknet / APMC modal price history for major commodities. For specialty or unlisted crops, AgriHub+ will decline to fabricate estimates.
             </div>
 
             <button 
@@ -194,7 +183,7 @@ export const AIPriceScreen: React.FC = () => {
             </span>
           </div>
 
-          {simulateInsufficientData ? (
+          {!benchmark ? (
             /* Section 6.5 Graceful Fallback State */
             <div style={{ padding: '2rem 1.25rem', textAlign: 'center', background: 'var(--color-amber-100)', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-amber-600)' }}>
               <span style={{ fontSize: '2.5rem', display: 'block', marginBottom: '0.5rem' }}>⚠️</span>

@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { apiUrl } from './config/api';
 import { MarketProvider, useMarket } from './context/MarketContext';
 import { MarketHeader } from './components/layout/MarketHeader';
 import { MarketFooter } from './components/layout/MarketFooter';
@@ -119,7 +120,7 @@ export const AppContent: React.FC = () => {
 
   // Preserve Phase 1 Backend Health foundation check
   useEffect(() => {
-    fetch('/api/health')
+    fetch(apiUrl('/api/health'))
       .then((res) => {
         if (!res.ok) {
           throw new Error(`Server returned HTTP ${res.status}`);

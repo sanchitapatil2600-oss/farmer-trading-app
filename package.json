@@ -11,6 +11,7 @@
     "typecheck:backend": "npm --prefix backend run typecheck",
     "typecheck:frontend": "npm --prefix frontend run typecheck",
     "typecheck": "npm run typecheck:backend && npm run typecheck:frontend",
+    "test": "npm --prefix backend test",
     "build": "npm run build:backend && npm run build:frontend"
   }
 }

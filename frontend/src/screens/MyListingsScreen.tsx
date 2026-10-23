@@ -3,17 +3,69 @@ import { useMarket } from '../context/MarketContext';
 import { StatusPill } from '../components/common/StatusPill';
 
 export const MyListingsScreen: React.FC = () => {
-  const { listings, offers, currentUser, navigateTo } = useMarket();
+  const { listings, offers, currentUser, deleteListing, navigateTo } = useMarket();
   const [filterTab, setFilterTab] = useState<'ALL' | 'ACTIVE' | 'SOLD_OUT'>('ALL');
+  const [notification, setNotification] = useState<string | null>(null);
 
-  const farmerId = currentUser?.id || 'usr-f-001';
-  const myListings = listings.filter(l => l.farmerId === farmerId);
+  if (!currentUser) {
+    return (
+      <div className="market-card" style={{ textAlign: 'center', padding: '3rem 1.5rem', maxWidth: '600px', margin: '2rem auto' }}>
+        <span style={{ fontSize: '3rem', display: 'block', marginBottom: '0.5rem' }}>🔒</span>
+        <h2 style={{ fontSize: '1.4rem', fontWeight: 700, color: 'var(--color-forest-900)', marginBottom: '0.5rem' }}>
+          Farmer Authentication Required
+        </h2>
+        <p style={{ color: 'var(--color-soil-600)', marginBottom: '1.5rem' }}>
+          Please log in as a Farmer to view and manage your produce harvest listings.
+        </p>
+        <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center' }}>
+          <button type="button" className="btn-primary" onClick={() => navigateTo('login')}>
+            Login as Farmer
+          </button>
+          <button type="button" className="btn-secondary" onClick={() => navigateTo('marketplace')}>
+            Browse Marketplace
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (currentUser.role !== 'FARMER') {
+    return (
+      <div className="market-card" style={{ textAlign: 'center', padding: '3rem 1.5rem', maxWidth: '600px', margin: '2rem auto' }}>
+        <span style={{ fontSize: '3rem', display: 'block', marginBottom: '0.5rem' }}>🏪</span>
+        <h2 style={{ fontSize: '1.4rem', fontWeight: 700, color: 'var(--color-forest-900)', marginBottom: '0.5rem' }}>
+          Farmer-Only Screen
+        </h2>
+        <p style={{ color: 'var(--color-soil-600)', marginBottom: '1.5rem' }}>
+          You are currently logged in as a <strong>Buyer ({currentUser.name})</strong>. Produce listings are managed by verified farmers.
+        </p>
+        <button type="button" className="btn-primary" onClick={() => navigateTo('marketplace')}>
+          Explore Buyer Marketplace
+        </button>
+      </div>
+    );
+  }
+
+  const myListings = listings.filter(l => l.farmerId === currentUser.id);
 
   const filteredListings = myListings.filter(l => {
     if (filterTab === 'ACTIVE') return l.status === 'ACTIVE';
     if (filterTab === 'SOLD_OUT') return l.status === 'SOLD_OUT';
     return true;
   });
+
+  const handleDelete = async (listingId: string, cropName: string) => {
+    if (window.confirm(`Are you sure you want to delete listing for "${cropName}"? This action will remove it from the marketplace.`)) {
+      const res = await deleteListing(listingId);
+      if (res.success) {
+        setNotification(`Listing for "${cropName}" deleted successfully.`);
+        setTimeout(() => setNotification(null), 4000);
+      } else {
+        setNotification(`Failed to delete listing: ${res.error || 'Server error'}`);
+        setTimeout(() => setNotification(null), 5000);
+      }
+    }
+  };
 
   return (
     <div>
@@ -30,14 +82,14 @@ export const MyListingsScreen: React.FC = () => {
           </div>
 
           <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-            <button 
+            <button
               type="button"
               className="btn-primary"
               onClick={() => navigateTo('add_produce')}
             >
               <span>🌱</span> Add Produce Listing
             </button>
-            <button 
+            <button
               type="button"
               className="btn-secondary"
               onClick={() => navigateTo('farmer_dashboard')}
@@ -48,9 +100,17 @@ export const MyListingsScreen: React.FC = () => {
         </div>
       </div>
 
+      {/* Notification Banner */}
+      {notification && (
+        <div className="agri-alert agri-alert-info" role="alert" style={{ marginBottom: '1.25rem' }}>
+          <span style={{ fontSize: '1.25rem' }}>ℹ️</span>
+          <div>{notification}</div>
+        </div>
+      )}
+
       {/* Filter Tabs */}
       <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', borderBottom: '2px solid var(--color-border-subtle)', paddingBottom: '0.5rem', flexWrap: 'wrap' }}>
-        <button 
+        <button
           type="button"
           className={`agri-nav-btn ${filterTab === 'ALL' ? 'active' : ''}`}
           style={{ color: filterTab === 'ALL' ? 'var(--color-forest-900)' : 'var(--color-soil-600)', background: filterTab === 'ALL' ? 'var(--color-sprout-100)' : 'transparent', border: '1px solid var(--color-border-subtle)' }}
@@ -59,7 +119,7 @@ export const MyListingsScreen: React.FC = () => {
           All Listings ({myListings.length})
         </button>
 
-        <button 
+        <button
           type="button"
           className={`agri-nav-btn ${filterTab === 'ACTIVE' ? 'active' : ''}`}
           style={{ color: filterTab === 'ACTIVE' ? 'var(--color-forest-900)' : 'var(--color-soil-600)', background: filterTab === 'ACTIVE' ? 'var(--color-sprout-100)' : 'transparent', border: '1px solid var(--color-border-subtle)' }}
@@ -68,7 +128,7 @@ export const MyListingsScreen: React.FC = () => {
           Active Batches ({myListings.filter(l => l.status === 'ACTIVE').length})
         </button>
 
-        <button 
+        <button
           type="button"
           className={`agri-nav-btn ${filterTab === 'SOLD_OUT' ? 'active' : ''}`}
           style={{ color: filterTab === 'SOLD_OUT' ? 'var(--color-forest-900)' : 'var(--color-soil-600)', background: filterTab === 'SOLD_OUT' ? 'var(--color-sprout-100)' : 'transparent', border: '1px solid var(--color-border-subtle)' }}
@@ -94,12 +154,12 @@ export const MyListingsScreen: React.FC = () => {
           {filteredListings.map((listing) => {
             const listingOffers = offers.filter(o => o.listingId === listing.id);
             const activeOffers = listingOffers.filter(o => o.status === 'ACTIVE');
-            const percentAvailable = listing.totalQuantity > 0 
-              ? Math.round((listing.quantity / listing.totalQuantity) * 100) 
+            const percentAvailable = listing.totalQuantity > 0
+              ? Math.round((listing.quantity / listing.totalQuantity) * 100)
               : 0;
 
             return (
-              <div 
+              <div
                 key={listing.id}
                 className="market-card"
                 style={{ padding: '1.5rem' }}
@@ -169,20 +229,20 @@ export const MyListingsScreen: React.FC = () => {
                     <span className="tabular-nums">{percentAvailable}% available ({listing.quantity} / {listing.totalQuantity} {listing.unit}s)</span>
                   </div>
                   <div style={{ height: '8px', background: 'var(--color-border-subtle)', borderRadius: '9999px', overflow: 'hidden' }}>
-                    <div 
-                      style={{ 
-                        height: '100%', 
-                        width: `${percentAvailable}%`, 
+                    <div
+                      style={{
+                        height: '100%',
+                        width: `${percentAvailable}%`,
                         backgroundColor: percentAvailable > 0 ? 'var(--color-harvest-600)' : 'var(--color-slate-500)',
                         transition: 'width 0.3s ease',
-                      }} 
+                      }}
                     />
                   </div>
                 </div>
 
                 {/* Actions */}
                 <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
-                  <button 
+                  <button
                     type="button"
                     className="btn-secondary"
                     onClick={() => navigateTo('produce_details', { listingId: listing.id })}
@@ -190,12 +250,21 @@ export const MyListingsScreen: React.FC = () => {
                     View Batch Details
                   </button>
 
-                  <button 
+                  <button
                     type="button"
                     className="btn-primary"
                     onClick={() => navigateTo('offers')}
                   >
                     <span>📬</span> Review Offers ({listingOffers.length})
+                  </button>
+
+                  <button
+                    type="button"
+                    className="btn-secondary"
+                    style={{ color: '#b91c1c', borderColor: '#fca5a5' }}
+                    onClick={() => handleDelete(listing.id, listing.productName)}
+                  >
+                    <span>🗑️</span> Delete
                   </button>
                 </div>
               </div>

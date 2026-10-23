@@ -4,21 +4,73 @@ import { MetricCard } from '../components/common/MetricCard';
 import { StatusPill } from '../components/common/StatusPill';
 
 export const FarmerDashboardScreen: React.FC = () => {
-  const { 
-    currentUser, 
-    listings, 
-    offers, 
-    deals, 
-    deliveries, 
-    acceptOffer, 
-    rejectOffer, 
-    navigateTo 
+  const {
+    currentUser,
+    listings,
+    offers,
+    deals,
+    deliveries,
+    acceptOffer,
+    rejectOffer,
+    navigateTo
   } = useMarket();
 
   const [notification, setNotification] = useState<string | null>(null);
+  const [submittingOfferId, setSubmittingOfferId] = useState<string | null>(null);
+
+  if (!currentUser) {
+    return (
+      <div className="market-card" style={{ textAlign: 'center', padding: '3.5rem 1.5rem', background: 'var(--color-canvas-bg)' }}>
+        <span style={{ fontSize: '3rem', display: 'block', marginBottom: '0.75rem' }}>🌾</span>
+        <h2 style={{ fontSize: '1.4rem', fontWeight: 700, color: 'var(--color-forest-900)', marginBottom: '0.5rem' }}>
+          Farmer Dashboard Access
+        </h2>
+        <p style={{ color: 'var(--color-soil-600)', maxWidth: '480px', margin: '0 auto 1.5rem', lineHeight: 1.5 }}>
+          Please log in to your registered farmer account to view your produce batches, inspect incoming buyer offers, and manage commercial deals.
+        </p>
+        <button
+          type="button"
+          className="btn-primary"
+          onClick={() => navigateTo('login')}
+        >
+          Login as Farmer
+        </button>
+      </div>
+    );
+  }
+
+  if (currentUser.role !== 'FARMER') {
+    return (
+      <div className="market-card" style={{ textAlign: 'center', padding: '3.5rem 1.5rem', background: 'var(--color-canvas-bg)' }}>
+        <span style={{ fontSize: '3rem', display: 'block', marginBottom: '0.75rem' }}>🏪</span>
+        <h2 style={{ fontSize: '1.4rem', fontWeight: 700, color: 'var(--color-forest-900)', marginBottom: '0.5rem' }}>
+          Logged in as Buyer ({currentUser.name})
+        </h2>
+        <p style={{ color: 'var(--color-soil-600)', maxWidth: '500px', margin: '0 auto 1.5rem', lineHeight: 1.5 }}>
+          The Farmer Dashboard is dedicated to agricultural producers managing crop inventories and incoming bids. As a buyer, you can browse listings and track your submitted offers in the Buyer Marketplace.
+        </p>
+        <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center', flexWrap: 'wrap' }}>
+          <button
+            type="button"
+            className="btn-primary"
+            onClick={() => navigateTo('marketplace')}
+          >
+            Go to Buyer Marketplace
+          </button>
+          <button
+            type="button"
+            className="btn-secondary"
+            onClick={() => navigateTo('offers')}
+          >
+            View My Offers
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   // Filter items relevant to the farmer
-  const farmerId = currentUser?.id || 'usr-f-001';
+  const farmerId = currentUser.id;
   const farmerListings = listings.filter(l => l.farmerId === farmerId);
   const activeListingsCount = farmerListings.filter(l => l.status === 'ACTIVE').length;
 
@@ -26,19 +78,31 @@ export const FarmerDashboardScreen: React.FC = () => {
   const pendingOffers = farmerOffers.filter(o => o.status === 'ACTIVE');
 
   const farmerDeals = deals.filter(d => d.farmerId === farmerId);
-  const activeDeliveriesCount = deliveries.filter(del => 
+  const activeDeliveriesCount = deliveries.filter(del =>
     del.status === 'PICKUP_SCHEDULED' || del.status === 'IN_TRANSIT'
   ).length;
 
-  const handleAccept = (offerId: string, cropName: string, buyerName: string) => {
-    acceptOffer(offerId);
-    setNotification(`Offer accepted for ${cropName} from ${buyerName}. A new deal has been created with status CONFIRMED.`);
+  const handleAccept = async (offerId: string, cropName: string, buyerName: string) => {
+    setSubmittingOfferId(offerId);
+    const res = await acceptOffer(offerId);
+    setSubmittingOfferId(null);
+    if (res.success) {
+      setNotification(`Offer accepted for ${cropName} from ${buyerName}. A new deal has been created with status CONFIRMED.`);
+    } else {
+      setNotification(`Failed to accept offer: ${res.error || 'Server error'}`);
+    }
     setTimeout(() => setNotification(null), 6000);
   };
 
-  const handleReject = (offerId: string) => {
-    rejectOffer(offerId);
-    setNotification('Offer has been rejected.');
+  const handleReject = async (offerId: string) => {
+    setSubmittingOfferId(offerId);
+    const res = await rejectOffer(offerId);
+    setSubmittingOfferId(null);
+    if (res.success) {
+      setNotification('Offer has been rejected.');
+    } else {
+      setNotification(`Failed to reject offer: ${res.error || 'Server error'}`);
+    }
     setTimeout(() => setNotification(null), 4000);
   };
 
@@ -61,14 +125,14 @@ export const FarmerDashboardScreen: React.FC = () => {
           </div>
 
           <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-            <button 
+            <button
               type="button"
               className="btn-primary"
               onClick={() => navigateTo('add_produce')}
             >
               <span>🌱</span> Add Produce Listing
             </button>
-            <button 
+            <button
               type="button"
               className="btn-secondary"
               onClick={() => navigateTo('marketplace')}
@@ -91,14 +155,14 @@ export const FarmerDashboardScreen: React.FC = () => {
 
       {/* Metric Cards Grid */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem', marginBottom: '2rem' }}>
-        <MetricCard 
+        <MetricCard
           title="Active Produce Batches"
           value={activeListingsCount}
           subtitle="Listed crops open for bids"
           icon="📦"
         />
 
-        <MetricCard 
+        <MetricCard
           title="Pending Received Offers"
           value={pendingOffers.length}
           subtitle="Awaiting your acceptance"
@@ -106,14 +170,14 @@ export const FarmerDashboardScreen: React.FC = () => {
           trend={pendingOffers.length > 0 ? `${pendingOffers.length} Action Needed` : undefined}
         />
 
-        <MetricCard 
+        <MetricCard
           title="Confirmed Deals"
           value={farmerDeals.length}
           subtitle="Total agreed commercial deals"
           icon="🤝"
         />
 
-        <MetricCard 
+        <MetricCard
           title="Logistics Pickups"
           value={activeDeliveriesCount}
           subtitle="In transit or scheduled"
@@ -147,8 +211,8 @@ export const FarmerDashboardScreen: React.FC = () => {
             {pendingOffers.map((offer) => {
               const totalOfferVal = offer.quantity * offer.offeredPrice;
               return (
-                <div 
-                  key={offer.id} 
+                <div
+                  key={offer.id}
                   style={{
                     border: '1px solid var(--color-border-subtle)',
                     borderRadius: 'var(--radius-md)',
@@ -202,21 +266,25 @@ export const FarmerDashboardScreen: React.FC = () => {
                   )}
 
                   <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', flexWrap: 'wrap', marginTop: '0.25rem' }}>
-                    <button 
+                    <button
                       type="button"
                       className="btn-secondary"
                       style={{ color: 'var(--color-terracotta-700)', borderColor: 'var(--color-terracotta-700)' }}
                       onClick={() => handleReject(offer.id)}
+                      disabled={submittingOfferId === offer.id}
                     >
-                      Reject Offer
+                      {submittingOfferId === offer.id ? 'Processing...' : 'Reject Offer'}
                     </button>
 
-                    <button 
+                    <button
                       type="button"
                       className="btn-primary"
                       onClick={() => handleAccept(offer.id, offer.listingProductName, offer.buyerName)}
+                      disabled={submittingOfferId === offer.id}
                     >
-                      <span>🤝</span> Accept Offer & Confirm Deal
+                      {submittingOfferId === offer.id ? 'Confirming Deal...' : (
+                        <><span>🤝</span> Accept Offer & Confirm Deal</>
+                      )}
                     </button>
                   </div>
                 </div>
@@ -242,7 +310,7 @@ export const FarmerDashboardScreen: React.FC = () => {
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1rem' }}>
             {farmerDeals.map((deal) => (
-              <div 
+              <div
                 key={deal.id}
                 style={{
                   border: '1px solid var(--color-border-subtle)',

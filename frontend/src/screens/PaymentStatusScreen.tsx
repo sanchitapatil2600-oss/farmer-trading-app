@@ -1,16 +1,14 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useMarket } from '../context/MarketContext';
 import { StatusPill } from '../components/common/StatusPill';
 
 export const PaymentStatusScreen: React.FC = () => {
-  const { deals, payments, selectedDealId, updatePaymentStatus, updateDealStatus, navigateTo } = useMarket();
+  const { deals, payments, selectedDealId, navigateTo } = useMarket();
 
   // Selected deal or default to first
   const currentDealId = selectedDealId || (deals.length > 0 ? deals[0].id : null);
   const deal = deals.find(d => d.id === currentDealId) || deals[0];
   const payment = payments.find(p => p.dealId === deal?.id);
-
-  const [notification, setNotification] = useState<string | null>(null);
 
   if (!deal) {
     return (
@@ -22,18 +20,6 @@ export const PaymentStatusScreen: React.FC = () => {
       </div>
     );
   }
-
-  const handleTogglePaymentStatus = (newStatus: 'PENDING' | 'PAID') => {
-    updatePaymentStatus(deal.id, newStatus);
-    if (newStatus === 'PAID') {
-      updateDealStatus(deal.id, 'PAID');
-      setNotification('Demonstration state updated: Payment marked as PAID and Deal advanced to PAID.');
-    } else {
-      updateDealStatus(deal.id, 'PAYMENT_PENDING');
-      setNotification('Demonstration state updated: Payment marked as PENDING.');
-    }
-    setTimeout(() => setNotification(null), 5000);
-  };
 
   return (
     <div>
@@ -93,13 +79,6 @@ export const PaymentStatusScreen: React.FC = () => {
           <strong>No real payment was conducted or completed.</strong> In production, payment verification is strictly executed server-side via external payment gateway webhooks.
         </div>
       </div>
-
-      {notification && (
-        <div className="agri-alert agri-alert-info" role="alert">
-          <span style={{ fontSize: '1.25rem' }}>ℹ️</span>
-          <div>{notification}</div>
-        </div>
-      )}
 
       {/* Main Payment Details Grid */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
@@ -165,26 +144,16 @@ export const PaymentStatusScreen: React.FC = () => {
             )}
           </div>
 
-          {/* Mentor Demonstration Toggle Controls */}
+          {/* Payment Gateway Integration Status */}
           <div style={{ borderTop: '1px solid var(--color-border-subtle)', paddingTop: '1rem', marginTop: '1.5rem' }}>
             <div style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--color-soil-600)', textTransform: 'uppercase', marginBottom: '0.5rem' }}>
-              ⚙️ Demonstration Status Toggle (Review Mode)
+              ℹ️ Payment Processing Status
             </div>
-            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-              <button 
-                type="button"
-                className="btn-primary"
-                onClick={() => handleTogglePaymentStatus('PAID')}
-              >
-                Set Demonstration State to PAID
-              </button>
-              <button 
-                type="button"
-                className="btn-secondary"
-                onClick={() => handleTogglePaymentStatus('PENDING')}
-              >
-                Set Demonstration State to PENDING
-              </button>
+            <div className="agri-alert agri-alert-info" style={{ margin: 0, fontSize: '0.85rem' }}>
+              <span>🔒</span>
+              <div>
+                <strong>Planned Gateway Integration:</strong> Automated online payment collection via certified UPI/PG webhooks (e.g., Razorpay/Cashfree) is slated for production deployment. Current operational settlement occurs via direct bank transfer (NEFT/RTGS) or farmgate handover.
+              </div>
             </div>
           </div>
         </div>

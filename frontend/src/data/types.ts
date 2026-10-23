@@ -62,6 +62,7 @@ export interface Offer {
   unit: 'quintal' | 'kg' | 'tonne';
   status: OfferStatus;
   message?: string;
+  expirationReason?: string;
   createdAt: string;
 }
 

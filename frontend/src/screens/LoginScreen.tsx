@@ -42,12 +42,42 @@ export const LoginScreen: React.FC = () => {
         </div>
 
         {/* Phase 2 Real Authentication Notice */}
-        <div className="agri-alert agri-alert-privacy" style={{ fontSize: '0.85rem' }}>
+        <div className="agri-alert agri-alert-privacy" style={{ fontSize: '0.85rem', marginBottom: '1rem' }}>
           <span>🔒</span>
           <div>
-            <strong>Phase 2 Authentication:</strong> Connected to server-side authentication API.
-            Session verification and server-side role validation are strictly enforced.
+            <strong>Server Authentication:</strong> Connected to Neon PostgreSQL backend API.
+            Session tokens and role validation are strictly enforced.
           </div>
+        </div>
+
+        {/* Quick-fill Demo Buttons */}
+        <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.25rem', flexWrap: 'wrap' }}>
+          <button
+            type="button"
+            className="btn-secondary"
+            style={{ flex: 1, minWidth: '150px', fontSize: '0.85rem', padding: '0.5rem 0.75rem' }}
+            onClick={() => {
+              setIdentifier('farmer@agrihub.local');
+              setPassword('Password123!');
+              setSelectedRole('FARMER');
+              setError(null);
+            }}
+          >
+            🌾 Quick-Fill Demo Farmer
+          </button>
+          <button
+            type="button"
+            className="btn-secondary"
+            style={{ flex: 1, minWidth: '150px', fontSize: '0.85rem', padding: '0.5rem 0.75rem' }}
+            onClick={() => {
+              setIdentifier('buyer@agrihub.local');
+              setPassword('Password123!');
+              setSelectedRole('BUYER');
+              setError(null);
+            }}
+          >
+            🏪 Quick-Fill Demo Buyer
+          </button>
         </div>
 
         {error && (

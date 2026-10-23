@@ -1,18 +1,14 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useMarket } from '../context/MarketContext';
 import { DeliveryStatusTracker } from '../components/common/DeliveryStatusTracker';
 import { StatusPill } from '../components/common/StatusPill';
-import { DeliveryStatus } from '../data/types';
-
 export const DeliveryStatusScreen: React.FC = () => {
-  const { deals, deliveries, selectedDealId, updateDeliveryStatus, updateDealStatus, navigateTo } = useMarket();
+  const { deals, deliveries, selectedDealId, navigateTo } = useMarket();
 
   // Selected deal or default to first
   const currentDealId = selectedDealId || (deals.length > 0 ? deals[0].id : null);
   const deal = deals.find(d => d.id === currentDealId) || deals[0];
   const delivery = deliveries.find(del => del.dealId === deal?.id);
-
-  const [notification, setNotification] = useState<string | null>(null);
 
   if (!deal || !delivery) {
     return (
@@ -24,18 +20,6 @@ export const DeliveryStatusScreen: React.FC = () => {
       </div>
     );
   }
-
-  const handleAdvanceDelivery = (nextStatus: DeliveryStatus) => {
-    updateDeliveryStatus(delivery.id, nextStatus);
-    if (nextStatus === 'DELIVERED') {
-      updateDealStatus(deal.id, 'COMPLETED');
-      setNotification('Delivery status marked as DELIVERED. Deal marked as COMPLETED.');
-    } else {
-      updateDealStatus(deal.id, 'DELIVERY');
-      setNotification(`Delivery status updated to ${nextStatus}.`);
-    }
-    setTimeout(() => setNotification(null), 5000);
-  };
 
   return (
     <div>
@@ -87,13 +71,6 @@ export const DeliveryStatusScreen: React.FC = () => {
         </div>
       </div>
 
-      {notification && (
-        <div className="agri-alert agri-alert-info" role="alert">
-          <span style={{ fontSize: '1.25rem' }}>ℹ️</span>
-          <div>{notification}</div>
-        </div>
-      )}
-
       {/* Sequential Milestone Progress Tracker */}
       <div className="market-card" style={{ marginBottom: '1.5rem' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
@@ -111,57 +88,16 @@ export const DeliveryStatusScreen: React.FC = () => {
         {/* Milestone Tracker Component */}
         <DeliveryStatusTracker status={delivery.status} />
 
-        {/* Demonstration Milestone Controls */}
+        {/* Logistics Integration Status */}
         <div style={{ borderTop: '1px solid var(--color-border-subtle)', paddingTop: '1rem', marginTop: '1rem' }}>
           <div style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--color-soil-600)', textTransform: 'uppercase', marginBottom: '0.5rem' }}>
-            ⚙️ Demonstration Milestone Progression (Mentor Review)
+            ℹ️ Logistics &amp; Transport Status
           </div>
-          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-            {delivery.status === 'PENDING' && (
-              <button 
-                type="button" 
-                className="btn-primary"
-                onClick={() => handleAdvanceDelivery('PICKUP_SCHEDULED')}
-              >
-                Mark as PICKUP_SCHEDULED ►
-              </button>
-            )}
-
-            {delivery.status === 'PICKUP_SCHEDULED' && (
-              <button 
-                type="button" 
-                className="btn-primary"
-                onClick={() => handleAdvanceDelivery('PICKED_UP')}
-              >
-                Mark as PICKED_UP (Dispatched from Farm) ►
-              </button>
-            )}
-
-            {delivery.status === 'PICKED_UP' && (
-              <button 
-                type="button" 
-                className="btn-primary"
-                onClick={() => handleAdvanceDelivery('IN_TRANSIT')}
-              >
-                Mark as IN_TRANSIT (In Corridor) ►
-              </button>
-            )}
-
-            {delivery.status === 'IN_TRANSIT' && (
-              <button 
-                type="button" 
-                className="btn-primary"
-                onClick={() => handleAdvanceDelivery('DELIVERED')}
-              >
-                Mark as DELIVERED (Received at Destination) ✓
-              </button>
-            )}
-
-            {delivery.status === 'DELIVERED' && (
-              <div style={{ fontSize: '0.85rem', color: 'var(--color-forest-900)', fontWeight: 600, padding: '0.5rem 0' }}>
-                ✓ Delivery milestone complete. Deal has reached COMPLETED status.
-              </div>
-            )}
+          <div className="agri-alert agri-alert-info" style={{ margin: 0, fontSize: '0.85rem' }}>
+            <span>🚛</span>
+            <div>
+              <strong>Farmgate Handover Workflow:</strong> Real-time telematics and commercial fleet API integration are scheduled for Phase 5. In the current operational MVP, physical consignment handover, transport slips, and truck weighment verification are coordinated directly between the seller farmer and the procuring buyer.
+            </div>
           </div>
         </div>
       </div>

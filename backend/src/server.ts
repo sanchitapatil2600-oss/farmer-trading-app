@@ -4,10 +4,10 @@ import { closePool } from './db';
 
 const app = createApp();
 
-const server = app.listen(config.port, () => {
-  console.log(`[Server] Farmer Trading Backend running on http://localhost:${config.port}`);
+const server = app.listen(config.port, '0.0.0.0', () => {
+  console.log(`[Server] Farmer Trading Backend running on port ${config.port} (0.0.0.0)`);
   console.log(`[Server] Environment: ${config.nodeEnv}`);
-  console.log(`[Server] Health check: http://localhost:${config.port}/api/health`);
+  console.log(`[Server] Health check: /api/health`);
 });
 
 // Graceful shutdown handling

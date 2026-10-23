@@ -17,3 +17,20 @@ export const authRateLimiter = rateLimit({
     },
   },
 });
+
+/**
+ * Rate limiter for offer submissions to prevent bidding abuse and spam per docs/SECURITY.md §8.
+ */
+export const offerRateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 60, // Limit each IP to 60 offer submissions per window
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    error: {
+      code: 'TOO_MANY_REQUESTS',
+      message: 'Too many offer submissions. Please slow down and try again later.',
+    },
+  },
+});

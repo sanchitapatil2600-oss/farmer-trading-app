@@ -13,14 +13,54 @@ export const AddProduceScreen: React.FC = () => {
   const [availabilityDate, setAvailabilityDate] = useState(
     new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
   );
-  const [village, setVillage] = useState(currentUser?.village || 'Pimpalgaon Baswant');
-  const [district, setDistrict] = useState(currentUser?.district || 'Nashik');
+  const [village, setVillage] = useState(currentUser?.village || '');
+  const [district, setDistrict] = useState(currentUser?.district || '');
   const [state, setState] = useState(currentUser?.state || 'Maharashtra');
   const [description, setDescription] = useState('');
   const [formError, setFormError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState<boolean>(false);
 
   // Embedded advisory benchmark helper
   const [showAdvisoryHelper, setShowAdvisoryHelper] = useState(false);
+
+  if (!currentUser) {
+    return (
+      <div className="market-card" style={{ textAlign: 'center', padding: '3rem 1.5rem', maxWidth: '600px', margin: '2rem auto' }}>
+        <span style={{ fontSize: '3rem', display: 'block', marginBottom: '0.5rem' }}>🔒</span>
+        <h2 style={{ fontSize: '1.4rem', fontWeight: 700, color: 'var(--color-forest-900)', marginBottom: '0.5rem' }}>
+          Farmer Authentication Required
+        </h2>
+        <p style={{ color: 'var(--color-soil-600)', marginBottom: '1.5rem' }}>
+          Please log in to your verified Farmer account to publish produce listings to the marketplace.
+        </p>
+        <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center' }}>
+          <button type="button" className="btn-primary" onClick={() => navigateTo('login')}>
+            Login as Farmer
+          </button>
+          <button type="button" className="btn-secondary" onClick={() => navigateTo('marketplace')}>
+            Browse Marketplace
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (currentUser.role !== 'FARMER') {
+    return (
+      <div className="market-card" style={{ textAlign: 'center', padding: '3rem 1.5rem', maxWidth: '600px', margin: '2rem auto' }}>
+        <span style={{ fontSize: '3rem', display: 'block', marginBottom: '0.5rem' }}>🌾</span>
+        <h2 style={{ fontSize: '1.4rem', fontWeight: 700, color: 'var(--color-forest-900)', marginBottom: '0.5rem' }}>
+          Farmer-Only Feature
+        </h2>
+        <p style={{ color: 'var(--color-soil-600)', marginBottom: '1.5rem' }}>
+          You are currently logged in as a <strong>Buyer ({currentUser.name})</strong>. Only registered farmers can publish produce listings.
+        </p>
+        <button type="button" className="btn-primary" onClick={() => navigateTo('marketplace')}>
+          Go to Buyer Marketplace
+        </button>
+      </div>
+    );
+  }
 
   const getAdvisoryRange = (cat: string) => {
     switch (cat) {
@@ -33,7 +73,7 @@ export const AddProduceScreen: React.FC = () => {
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!productName.trim()) {
@@ -62,9 +102,9 @@ export const AddProduceScreen: React.FC = () => {
     }
 
     setFormError(null);
+    setSubmitting(true);
 
-    // Add listing to typed in-memory state with status ACTIVE
-    addListing({
+    const res = await addListing({
       productName: productName.trim(),
       category,
       quantity: Number(quantity),
@@ -76,6 +116,11 @@ export const AddProduceScreen: React.FC = () => {
       state: state.trim(),
       description: description.trim() || undefined,
     });
+
+    setSubmitting(false);
+    if (!res.success) {
+      setFormError(res.error || 'Failed to create produce listing.');
+    }
   };
 
   return (
@@ -344,8 +389,9 @@ export const AddProduceScreen: React.FC = () => {
               type="submit"
               className="btn-primary"
               style={{ minHeight: '48px', padding: '0.75rem 1.75rem', fontSize: '1rem' }}
+              disabled={submitting}
             >
-              <span>🌱</span> Publish Produce Listing (Active)
+              <span>🌱</span> {submitting ? 'Publishing Produce Batch...' : 'Publish Produce Listing (Active)'}
             </button>
           </div>
         </form>

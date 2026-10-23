@@ -22,8 +22,9 @@ export function errorHandler(
   res: Response,
   _next: NextFunction
 ): void {
-  const statusCode = err.statusCode || 500;
-  const code = err.code || 'INTERNAL_SERVER_ERROR';
+  const isCorsError = err.message?.includes('CORS');
+  const statusCode = err.statusCode || (isCorsError ? 403 : 500);
+  const code = err.code || (isCorsError ? 'CORS_FORBIDDEN' : 'INTERNAL_SERVER_ERROR');
 
   // Log error on server side for observability (never return secrets to client)
   if (!config.isProduction) {
@@ -32,10 +33,11 @@ export function errorHandler(
     console.error(`[Error] ${code}: ${err.message}`);
   }
 
-  const clientMessage =
-    config.isProduction && statusCode === 500
-      ? 'An unexpected error occurred. Please try again later.'
-      : err.message || 'Internal server error';
+  const clientMessage = isCorsError
+    ? err.message
+    : config.isProduction && statusCode === 500
+    ? 'An unexpected error occurred. Please try again later.'
+    : err.message || 'Internal server error';
 
   res.status(statusCode).json({
     success: false,

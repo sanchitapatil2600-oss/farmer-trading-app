@@ -2,16 +2,16 @@ import React, { useState } from 'react';
 import { useMarket } from '../context/MarketContext';
 import { DealLifecycleTracker } from '../components/common/DealLifecycleTracker';
 import { StatusPill } from '../components/common/StatusPill';
-import { DealStatus } from '../data/types';
 
 export const DealTrackerScreen: React.FC = () => {
-  const { deals, selectedDealId, payments, deliveries, updateDealStatus, navigateTo } = useMarket();
+  const { deals, selectedDealId, payments, deliveries, refreshDeals, navigateTo } = useMarket();
 
   // Selected deal or default to first deal
   const currentDealId = selectedDealId || (deals.length > 0 ? deals[0].id : null);
   const deal = deals.find(d => d.id === currentDealId) || deals[0];
 
   const [notification, setNotification] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   if (!deal) {
     return (
@@ -31,10 +31,12 @@ export const DealTrackerScreen: React.FC = () => {
   const payment = payments.find(p => p.dealId === deal.id);
   const delivery = deliveries.find(del => del.dealId === deal.id);
 
-  const handleAdvanceStatus = (nextStatus: DealStatus) => {
-    updateDealStatus(deal.id, nextStatus);
-    setNotification(`Deal status advanced to ${nextStatus} (Demonstration State Updated).`);
-    setTimeout(() => setNotification(null), 5000);
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await refreshDeals();
+    setRefreshing(false);
+    setNotification('Deal details updated from server database.');
+    setTimeout(() => setNotification(null), 3000);
   };
 
   return (
@@ -60,7 +62,7 @@ export const DealTrackerScreen: React.FC = () => {
                 <label htmlFor="deal-select" style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-soil-600)' }}>
                   Select Deal:
                 </label>
-                <select 
+                <select
                   id="deal-select"
                   className="agri-select"
                   style={{ minHeight: '40px', padding: '0.25rem 0.5rem', width: 'auto' }}
@@ -76,8 +78,8 @@ export const DealTrackerScreen: React.FC = () => {
               </div>
             )}
 
-            <button 
-              type="button" 
+            <button
+              type="button"
               className="btn-secondary"
               onClick={() => navigateTo('farmer_dashboard')}
             >
@@ -111,78 +113,31 @@ export const DealTrackerScreen: React.FC = () => {
         {/* Section 6.4 DealLifecycleTracker */}
         <DealLifecycleTracker status={deal.status} />
 
-        {/* Mentor Demonstration Stage Progression Toolbar */}
-        <div style={{ borderTop: '1px solid var(--color-border-subtle)', paddingTop: '1rem', marginTop: '1rem' }}>
-          <div style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--color-soil-600)', textTransform: 'uppercase', marginBottom: '0.5rem' }}>
-            ⚙️ Demonstration Lifecycle Progression (Mentor Review)
+        {/* Authoritative Server Deal State */}
+        <div style={{ borderTop: '1px solid var(--color-border-subtle)', paddingTop: '1rem', marginTop: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem' }}>
+          <div>
+            <div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-soil-900)' }}>
+              Server Lifecycle Status: <span style={{ color: 'var(--color-forest-900)' }}>{deal.status}</span>
+            </div>
+            <div style={{ fontSize: '0.75rem', color: 'var(--color-soil-600)', marginTop: '0.2rem' }}>
+              {deal.status === 'CONFIRMED' && 'Deal created via atomic database transaction upon farmer accepting the buyer\'s offer.'}
+              {deal.status === 'PAYMENT_PENDING' && 'Deal confirmed, awaiting commercial escrow payment or RTGS confirmation.'}
+              {deal.status === 'PAID' && 'Commercial transaction settled. Harvest batch released for transport dispatch.'}
+              {deal.status === 'DELIVERY' && 'Produce consignment currently in transit to buyer destination.'}
+              {deal.status === 'COMPLETED' && 'Consignment delivered, verified, and deal finalized.'}
+              {deal.status === 'CANCELLED' && 'Deal cancelled.'}
+            </div>
           </div>
-          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-            {deal.status === 'CONFIRMED' && (
-              <>
-                <button 
-                  type="button"
-                  className="btn-primary"
-                  onClick={() => handleAdvanceStatus('PAYMENT_PENDING')}
-                >
-                  Advance to PAYMENT_PENDING ►
-                </button>
-                <button 
-                  type="button"
-                  className="btn-secondary"
-                  style={{ color: 'var(--color-terracotta-700)', borderColor: 'var(--color-terracotta-700)' }}
-                  onClick={() => handleAdvanceStatus('CANCELLED')}
-                >
-                  Cancel Deal
-                </button>
-              </>
-            )}
 
-            {deal.status === 'PAYMENT_PENDING' && (
-              <>
-                <button 
-                  type="button"
-                  className="btn-primary"
-                  onClick={() => handleAdvanceStatus('PAID')}
-                >
-                  Advance to PAID (Simulate Verified Payment) ►
-                </button>
-                <button 
-                  type="button"
-                  className="btn-secondary"
-                  style={{ color: 'var(--color-terracotta-700)', borderColor: 'var(--color-terracotta-700)' }}
-                  onClick={() => handleAdvanceStatus('CANCELLED')}
-                >
-                  Cancel Deal
-                </button>
-              </>
-            )}
-
-            {deal.status === 'PAID' && (
-              <button 
-                type="button"
-                className="btn-primary"
-                onClick={() => handleAdvanceStatus('DELIVERY')}
-              >
-                Advance to DELIVERY (Pickup Initiated) ►
-              </button>
-            )}
-
-            {deal.status === 'DELIVERY' && (
-              <button 
-                type="button"
-                className="btn-primary"
-                onClick={() => handleAdvanceStatus('COMPLETED')}
-              >
-                Advance to COMPLETED (Produce Delivered) ✓
-              </button>
-            )}
-
-            {(deal.status === 'COMPLETED' || deal.status === 'CANCELLED') && (
-              <div style={{ fontSize: '0.85rem', color: 'var(--color-soil-600)', fontStyle: 'italic', padding: '0.5rem 0' }}>
-                This deal has reached its terminal lifecycle status ({deal.status}).
-              </div>
-            )}
-          </div>
+          <button
+            type="button"
+            className="btn-secondary"
+            onClick={handleRefresh}
+            disabled={refreshing}
+            style={{ fontSize: '0.85rem', padding: '0.4rem 0.85rem' }}
+          >
+            {refreshing ? 'Syncing...' : '🔄 Refresh Status from Server'}
+          </button>
         </div>
       </div>
 
